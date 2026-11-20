@@ -1,29 +1,116 @@
-# Ohjelmointi
+# Mistral-kameratarkastus
 
-## Python-ohjelmoinnin perusteet automaatiotekniikan opiskelijoille
+Kamerapohjainen laaduntarkastussovellus, joka tunnistaa tuotteen tarkastusalueelta ja luokittelee sen Mistralin konenäkömallilla.
 
-# PLC-ohjelmointi
+Sovellus näyttää kamerakuvan Tkinter-käyttöliittymässä. Käyttäjä rajaa kuvasta tarkastusalueen eli ROI:n, minkä jälkeen sovellus tunnistaa tuotteen saapumisen, odottaa sen pysähtymistä ja lähettää rajatun kuvan Mistralin API:lle tarkastettavaksi.
 
-## Simulaattori PLC-ohjelmoinnin opetukseen
+## Ominaisuudet
 
-https://github.com/SeAMKedu/UnitySimulator.git
+- Käyttäjän määrittämä tarkastusalue kamerakuvasta
+- Tyhjän tarkastusalueen kalibrointi
+- Tuotteen liikkeen ja pysähtymisen tunnistus
+- Kuvan rajaus ennen pilvipalveluun lähettämistä
+- PASS- ja FAIL-luokittelu syykoodeineen
+- Epävarman tai virheellisen mallivastauksen hylkääminen
+- Päivittäiset CSV- ja tekstilokit
+- FAIL-kuvien ja otantaan valittujen PASS-kuvien tallennus
+- Päivittäisten tarkastusmäärien ja hylkäyssyiden seuranta
 
-### Markdown
+## Vaatimukset
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+- Python 3.11 tai uudempi
+- OpenCV:n tukema kamera (Normaali webkamera yleensä toimii)
+- Mistral API -avain
+- Mistral-tilillä käyttöoikeus valittuun konenäkömalliin
 
-```python
-Syntax highlighted code block
-for i in range(5):
-    print(str(i))
+## Asennus
+
+Luo virtuaaliympäristö ja asenna riippuvuudet:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ```
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+## API-avaimen asettaminen
 
-### Jekyll Themes
+Sovellus lukee avaimen ympäristömuuttujasta `MISTRAL_API_KEY`. Älä tallenna oikeaa API-avainta lähdekoodiin, `.env.example`-tiedostoon tai Git-repositorioon.
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/SeAMKedu/SeAMKedu.github.io/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+PowerShellissä avaimen voi antaa nykyiselle istunnolle näin ilman, että itse avain tallentuu komentohistoriaan:
 
-### Support or Contact
+```powershell
+$env:MISTRAL_API_KEY = Read-Host "Mistral API -avain"
+```
 
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+Käynnistä sovellus:
+
+```powershell
+python .\mistral_inspector.py
+```
+
+## Käyttö
+
+1. Rajaa tarkastettava alue vetämällä suorakulmio kamerakuvan päälle.
+2. Varmista, että tarkastusalue on tyhjä ja normaalissa odotustilassa.
+3. Valitse **Set EMPTY ARM Baseline**.
+4. Tuo tarkastettava tuote alueelle.
+5. Sovellus odottaa tuotteen pysähtymistä ja käynnistää tarkastuksen automaattisesti.
+6. Poista tuote alueelta ennen seuraavaa tarkastusta.
+
+## Asetukset
+
+Keskeiset asetukset ovat `mistral_inspector.py`-tiedoston alussa. Niillä voi säätää esimerkiksi:
+
+- kameran tunnistetta ja resoluutiota;
+- liikkeen ja tyhjän alueen tunnistuskynnyksiä;
+- pysähtymiseen vaadittavaa kuvamäärää;
+- tarkastusten välistä jäähdytysaikaa;
+- mallille lähetettävän kuvan enimmäiskokoa ja JPEG-laatua;
+- PASS-kuvien tallennusväliä.
+
+Oletusmalli on `mistral-large-4-0`. Sen voi vaihtaa ilman lähdekoodin muokkaamista ympäristömuuttujalla:
+
+```powershell
+$env:MISTRAL_MODEL_ID = "tuettu-konenakomalli"
+```
+
+Tarkista ennen vaihtamista Mistralin dokumentaatiosta, että malli tukee kuvia ja JSON-muotoisia vastauksia.
+
+## Tietosuoja ja tallennettavat tiedot
+
+Sovellus lähettää käyttäjän rajaaman kamera-alueen Mistralin Chat Completions API:lle. Älä sijoita rajatulle alueelle henkilöitä, henkilötietoja, tunnuksia, luottamuksellisia asiakirjoja tai tarkastukseen kuulumatonta tuotantotietoa.
+
+Mistralin tietosuojakäytännön mukaan API-syötteitä ja vastauksia voidaan normaalisti säilyttää väärinkäytösten valvontaa varten. Zero Data Retention -asetuksella tuettujen API-kutsujen säilytystä voidaan rajoittaa. Tarkista voimassa olevat ehdot ja oman organisaation asetukset ennen tuotantokäyttöä:
+
+- [Mistralin tietosuojakäytäntö](https://legal.mistral.ai/terms/privacy-policy/)
+- [Zero Data Retention](https://docs.mistral.ai/admin/monitor-comply/zero-data-retention)
+
+Sovellus tallentaa paikallisesti:
+
+- kaikki hylätyt tarkastuskuvat;
+- oletuksena joka 20. hyväksytyn tarkastuksen kuvan;
+- CSV- ja tekstimuotoiset tarkastuslokit;
+- sovelluksen teknisen lokin.
+
+Tiedot tallennetaan `inspection_logs/`-hakemistoon ja `production_mistral_lib.log`-tiedostoon. Ne on rajattu Gitin ulkopuolelle `.gitignore`-tiedostolla. Käyttäjä vastaa tiedostojen käyttöoikeuksista, säilytysajasta, varmuuskopioinnista ja poistamisesta.
+
+## Rajoitukset
+
+Yleiskäyttöinen konenäkömalli voi tehdä virheitä. Testaa tunnistus riittävän laajalla ja todellista käyttöympäristöä vastaavalla aineistolla. Älä käytä sovellusta turvallisuuskriittisen tai sopimuksellisen laatupäätöksen ainoana perusteena ilman asianmukaista validointia ja muita varmistuksia.
+
+Kamerakohtaiset valotus-, tarkennus- ja väriasetukset voivat vaikuttaa tuloksiin. Kaikki kamerat eivät myöskään noudata ohjelmallisesti pyydettyä resoluutiota tai muita asetuksia.
+
+## Projektin tiedostot
+
+```text
+mistral-inspector/
+├── mistral_inspector.py
+├── requirements.txt
+├── README.md
+├── LICENSE
+```
+
+## Lisenssi
+
+Projektin lähdekoodi on julkaistu [MIT-lisenssillä](LICENSE). Riippuvuudet asennetaan erikseen PyPI:stä niiden omilla lisensseillä. 
